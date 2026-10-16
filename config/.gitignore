@@ -1,0 +1,4 @@
+# Per-project secrets / host paths — never commit
+*.local.php
+!.gitignore
+!example.php
