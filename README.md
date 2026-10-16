@@ -35,7 +35,8 @@ Passt zur hautuu-Doku [Externes Hosting](https://github.com/platomat/hautoo/blob
 | --- | --- |
 | `config/beispiel.de.local.php` | Config für Projekt-Id `beispiel.de` |
 | `backup/beispiel.de/` | ZIP-Archive der letzten Pulls |
-| `./hdb.sh` | Kurzbefehl (hautoo-dist-bridge) |
+| `./hdb.sh` / `bin/hdb.php` | Kurzbefehl |
+| `bin/hautoo-dist-bridge.php` | gleicher CLI, langer Name |
 
 ```bash
 ./hdb.sh init
@@ -44,7 +45,7 @@ Passt zur hautuu-Doku [Externes Hosting](https://github.com/platomat/hautoo/blob
 ./hdb.sh check project beispiel.de
 ./hdb.sh pull beispiel.de
 # gleichwertig:
-php bin/dist-bridge.php beispiel.de
+php bin/hautoo-dist-bridge.php beispiel.de
 ```
 
 ### Interaktives `init`
