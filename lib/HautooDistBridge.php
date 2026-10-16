@@ -673,6 +673,9 @@ final class HautooDistBridge
         $lines[] = ($backupWritable ? 'ok' : 'FAIL') . '  backup/ writable';
         $ok = $ok && $backupWritable;
 
+        $htaccess = is_file(self::repoRoot() . '/.htaccess');
+        $lines[] = ($htaccess ? 'ok' : 'WARN') . '  root .htaccess present (deny HTTP if DocumentRoot points here)';
+
         return ['ok' => $ok, 'lines' => $lines];
     }
 

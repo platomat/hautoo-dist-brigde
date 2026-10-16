@@ -4,6 +4,17 @@ Kleines Hilfsprojekt für Sites aus dem [hautuu](https://github.com/platomat/hau
 
 Kein Secret gehört in dieses öffentliche Repo. Tokens und Pfade nur in `config/*.local.php` (gitignored) oder ENV.
 
+### HTTP-Absicherung
+
+Dieses Repo ist **nur CLI** (SSH). Ideal: kein DocumentRoot darauf. Zeigt trotzdem eine Domain hierhin, liefert Apache nichts aus:
+
+- Root-`.htaccess`: `Require all denied` (kein Index, kein Git, keine Dateien)
+- Zusätzlich `.htaccess` in `config/`, `backup/`, `lib/`, `bin/`, `scripts/`
+- Fallback `index.php` → HTTP 403, falls `.htaccess` ignoriert wird
+- Nginx: siehe `nginx-deny.conf.example`
+
+Voraussetzung Apache: `AllowOverride` greift für diesen Pfad.
+
 ## Worum es geht
 
 ```text

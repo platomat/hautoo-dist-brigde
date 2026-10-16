@@ -1,0 +1,11 @@
+# Example: deny HTTP access when this repo sits under a site path.
+# Adjust the location prefix to match your install, e.g. /hautoo-dist-brigde/
+#
+#   include /path/to/hautoo-dist-brigde/nginx-deny.conf.example;
+#
+# Or inline in the server block:
+
+# location ^~ /hautoo-dist-brigde/ {
+#     deny all;
+#     return 403;
+# }

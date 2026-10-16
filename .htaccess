@@ -1,0 +1,16 @@
+# hautoo-dist-bridge: never expose this tree via HTTP.
+# Prefer: DocumentRoot is NOT this repo. If a domain points here anyway, deny all.
+
+Options -Indexes -MultiViews -ExecCGI
+DirectoryIndex disabled
+
+<IfModule mod_authz_core.c>
+	Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+	Order deny,allow
+	Deny from all
+</IfModule>
+
+# VCS / env / backup / config even if a parent loosens access
+RedirectMatch 404 (?i)/(?:\.git|\.env|config/|backup/|lib/|bin/|vendor/)
