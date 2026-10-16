@@ -96,17 +96,19 @@ Lädt die ZIP (HTTPS), sichert sie unter `backup/`, entpackt nach Staging (Zip-S
 
 ## Build-Seite (Cloudflare)
 
+Im hautuu-Template (ab aktuellem Stand) reicht der **Standard-Build**. Kein eigener Build-Befehl nötig.
+
 | Variable | Wert | Bedeutung |
 | --- | --- | --- |
 | `SITE` | `https://www.beispiel.de` | Kanonische Site-URL für den Astro-Build (Sitemap, absolute Links). Bei Fremdhost = **Live-Domain**, nicht die `*.pages.dev`-URL. |
-| `HAUTOO_DIST_BRIDGE` | `1` | Nach dem Build ZIP erzeugen und als `dist/dist-bridge.zip` mitdeployen |
+| `HAUTOO_DIST_BRIDGE` | `1` | Nach `astro build` packt `postbuild` (`scripts/pack-dist-bridge.sh`) automatisch `dist/dist-bridge.zip` |
 
-```bash
-npm run build && bash scripts/pack-dist.sh .
-```
+| CF-Feld | Wert |
+| --- | --- |
+| Build command | `npm run build` (Default) |
+| Output directory | `dist` |
 
-`SITE` kann auch nur für den Build gesetzt werden (`SITE=https://www.beispiel.de npm run build`). Ohne `HAUTOO_DIST_BRIDGE=1`: `pack-dist.sh` macht nichts (Exit 0).
-
+Ohne `HAUTOO_DIST_BRIDGE=1` skippt das Pack-Script still. Standalone-Kopie des Packers: [`scripts/pack-dist.sh`](scripts/pack-dist.sh) in diesem Repo.
 ## Spezifikation (kurz)
 
 | Ziel | Detail |
