@@ -98,13 +98,14 @@ Lädt die ZIP (HTTPS), sichert sie unter `backup/`, entpackt nach Staging (Zip-S
 
 | Variable | Wert | Bedeutung |
 | --- | --- | --- |
+| `SITE` | `https://www.beispiel.de` | Kanonische Site-URL für den Astro-Build (Sitemap, absolute Links). Bei Fremdhost = **Live-Domain**, nicht die `*.pages.dev`-URL. |
 | `HAUTOO_DIST_BRIDGE` | `1` | Nach dem Build ZIP erzeugen und als `dist/dist-bridge.zip` mitdeployen |
 
 ```bash
 npm run build && bash scripts/pack-dist.sh .
 ```
 
-Ohne Variable: `pack-dist.sh` macht nichts (Exit 0).
+`SITE` kann auch nur für den Build gesetzt werden (`SITE=https://www.beispiel.de npm run build`). Ohne `HAUTOO_DIST_BRIDGE=1`: `pack-dist.sh` macht nichts (Exit 0).
 
 ## Spezifikation (kurz)
 
