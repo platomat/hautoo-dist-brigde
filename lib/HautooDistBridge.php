@@ -1,14 +1,14 @@
 <?php
 declare(strict_types=1);
 
-final class DistBridgeException extends RuntimeException
+final class HautooDistBridgeException extends RuntimeException
 {
 }
 
 /**
  * Pull a fixed ZIP URL and swap into a webroot (hautoo dist-bridge).
  */
-final class DistBridge
+final class HautooDistBridge
 {
     public const VERSION = '1.2.0';
     public const ZIP_NAME = 'dist-bridge.zip';
@@ -62,7 +62,7 @@ final class DistBridge
         $project = trim($project);
         $project = preg_replace('/\.local\.php$/i', '', $project) ?? $project;
         if ($project === '' || !preg_match('/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/', $project)) {
-            throw new DistBridgeException(
+            throw new HautooDistBridgeException(
                 'Invalid project id (use letters, digits, . _ -), e.g. beispiel.de'
             );
         }
@@ -102,13 +102,13 @@ final class DistBridge
             $projectId = self::normalizeProjectId($project);
             $path = self::configPath($projectId);
             if (!is_file($path)) {
-                throw new DistBridgeException(
+                throw new HautooDistBridgeException(
                     "Config not found: {$path}\nCreate with: ./hdb.sh init"
                 );
             }
             $loaded = require $path;
             if (!is_array($loaded)) {
-                throw new DistBridgeException('Config must return an array: ' . $path);
+                throw new HautooDistBridgeException('Config must return an array: ' . $path);
             }
             $file = $loaded;
         } else {
@@ -147,17 +147,17 @@ final class DistBridge
         }
 
         if ($cfg['zipUrl'] === '' || $cfg['targetDir'] === '') {
-            throw new DistBridgeException(
+            throw new HautooDistBridgeException(
                 'Missing zipUrl / targetDir in config (or DIST_BRIDGE_ZIP_URL / DIST_BRIDGE_TARGET_DIR)'
             );
         }
 
         if (!preg_match('#^https://#i', $cfg['zipUrl'])) {
-            throw new DistBridgeException('zipUrl must be https:// (got: ' . $cfg['zipUrl'] . ')');
+            throw new HautooDistBridgeException('zipUrl must be https:// (got: ' . $cfg['zipUrl'] . ')');
         }
 
         if (realpath(dirname($cfg['targetDir'])) === false) {
-            throw new DistBridgeException('Parent of targetDir does not exist: ' . $cfg['targetDir']);
+            throw new HautooDistBridgeException('Parent of targetDir does not exist: ' . $cfg['targetDir']);
         }
         $cfg['targetDir'] = rtrim($cfg['targetDir'], "/\\");
 
@@ -224,7 +224,7 @@ final class DistBridge
         $workBase = $cfg['workDir'] ?? sys_get_temp_dir();
         $workBase = rtrim($workBase, "/\\");
         if (!is_dir($workBase) && !mkdir($workBase, 0755, true) && !is_dir($workBase)) {
-            throw new DistBridgeException('Cannot create workDir ' . $workBase);
+            throw new HautooDistBridgeException('Cannot create workDir ' . $workBase);
         }
 
         $runId = 'dist-bridge-' . gmdate('Ymd\THis') . '-' . bin2hex(random_bytes(4));
@@ -233,14 +233,14 @@ final class DistBridge
         $staging = $runDir . DIRECTORY_SEPARATOR . 'staging';
 
         if (!mkdir($staging, 0755, true) && !is_dir($staging)) {
-            throw new DistBridgeException('Cannot create staging ' . $staging);
+            throw new HautooDistBridgeException('Cannot create staging ' . $staging);
         }
 
         try {
             self::download($cfg['zipUrl'], $zipFile, $cfg['token']);
             $size = filesize($zipFile);
             if ($size === false || $size < 64) {
-                throw new DistBridgeException('Downloaded file too small or empty');
+                throw new HautooDistBridgeException('Downloaded file too small or empty');
             }
             self::log('downloaded ' . $size . ' bytes');
 
@@ -280,7 +280,7 @@ final class DistBridge
         }
         $dir = self::backupDir($project);
         if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
-            throw new DistBridgeException('Cannot create backup dir ' . $dir);
+            throw new HautooDistBridgeException('Cannot create backup dir ' . $dir);
         }
         $stamp = date('Y-m-d--H-i-s');
         $dest = $dir . '/' . $stamp . '--' . self::ZIP_NAME;
@@ -290,7 +290,7 @@ final class DistBridge
             $dest = $dir . '/' . $stamp . '--' . sprintf('%02d', $n) . '--' . self::ZIP_NAME;
         }
         if (!copy($zipFile, $dest)) {
-            throw new DistBridgeException('Cannot write backup ZIP ' . $dest);
+            throw new HautooDistBridgeException('Cannot write backup ZIP ' . $dest);
         }
         self::log('backup ZIP ' . $dest);
         self::pruneZipBackups($dir, $keepBackups);
@@ -331,18 +331,18 @@ final class DistBridge
 
         $dir = dirname($destFile);
         if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
-            throw new DistBridgeException('Cannot mkdir ' . $dir);
+            throw new HautooDistBridgeException('Cannot mkdir ' . $dir);
         }
 
         if (function_exists('curl_init')) {
             $fh = fopen($destFile, 'wb');
             if ($fh === false) {
-                throw new DistBridgeException('Cannot write ' . $destFile);
+                throw new HautooDistBridgeException('Cannot write ' . $destFile);
             }
             $ch = curl_init($url);
             if ($ch === false) {
                 fclose($fh);
-                throw new DistBridgeException('curl_init failed');
+                throw new HautooDistBridgeException('curl_init failed');
             }
             $headers = ['Accept: application/zip, application/octet-stream, */*'];
             if ($token !== '') {
@@ -366,7 +366,7 @@ final class DistBridge
             fclose($fh);
             if ($ok === false || $code < 200 || $code >= 300) {
                 @unlink($destFile);
-                throw new DistBridgeException("Download failed (HTTP $code): $err");
+                throw new HautooDistBridgeException("Download failed (HTTP $code): $err");
             }
             return;
         }
@@ -387,26 +387,26 @@ final class DistBridge
         ];
         $data = @file_get_contents($url, false, stream_context_create($ctxOpts));
         if ($data === false) {
-            throw new DistBridgeException('Download failed (file_get_contents); enable curl preferred');
+            throw new HautooDistBridgeException('Download failed (file_get_contents); enable curl preferred');
         }
         if (file_put_contents($destFile, $data) === false) {
-            throw new DistBridgeException('Cannot write ' . $destFile);
+            throw new HautooDistBridgeException('Cannot write ' . $destFile);
         }
     }
 
     public static function extract(string $zipPath, string $destDir): void
     {
         if (!class_exists('ZipArchive')) {
-            throw new DistBridgeException('PHP extension zip (ZipArchive) required');
+            throw new HautooDistBridgeException('PHP extension zip (ZipArchive) required');
         }
         $zip = new ZipArchive();
         if ($zip->open($zipPath) !== true) {
-            throw new DistBridgeException('Cannot open ZIP: ' . $zipPath);
+            throw new HautooDistBridgeException('Cannot open ZIP: ' . $zipPath);
         }
 
         $destReal = realpath($destDir);
         if ($destReal === false) {
-            throw new DistBridgeException('Staging dir missing: ' . $destDir);
+            throw new HautooDistBridgeException('Staging dir missing: ' . $destDir);
         }
         $destReal = $destReal . DIRECTORY_SEPARATOR;
         $destBase = rtrim($destReal, DIRECTORY_SEPARATOR);
@@ -421,19 +421,19 @@ final class DistBridge
                 $dir = $destReal . $name;
                 if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
                     $zip->close();
-                    throw new DistBridgeException('Cannot mkdir ' . $dir);
+                    throw new HautooDistBridgeException('Cannot mkdir ' . $dir);
                 }
                 continue;
             }
             if (str_starts_with($name, '/') || str_contains($name, '../')) {
                 $zip->close();
-                throw new DistBridgeException('Refusing unsafe ZIP path: ' . $name);
+                throw new HautooDistBridgeException('Refusing unsafe ZIP path: ' . $name);
             }
             $target = $destReal . $name;
             $parent = dirname($target);
             if (!is_dir($parent) && !mkdir($parent, 0755, true) && !is_dir($parent)) {
                 $zip->close();
-                throw new DistBridgeException('Cannot mkdir ' . $parent);
+                throw new HautooDistBridgeException('Cannot mkdir ' . $parent);
             }
             $parentReal = realpath($parent);
             if (
@@ -441,18 +441,18 @@ final class DistBridge
                 || ($parentReal !== $destBase && !str_starts_with($parentReal, $destBase . DIRECTORY_SEPARATOR))
             ) {
                 $zip->close();
-                throw new DistBridgeException('Zip-Slip blocked: ' . $name);
+                throw new HautooDistBridgeException('Zip-Slip blocked: ' . $name);
             }
             $stream = $zip->getStream($name);
             if ($stream === false) {
                 $zip->close();
-                throw new DistBridgeException('Cannot read ZIP member: ' . $name);
+                throw new HautooDistBridgeException('Cannot read ZIP member: ' . $name);
             }
             $out = fopen($target, 'wb');
             if ($out === false) {
                 fclose($stream);
                 $zip->close();
-                throw new DistBridgeException('Cannot write ' . $target);
+                throw new HautooDistBridgeException('Cannot write ' . $target);
             }
             stream_copy_to_stream($stream, $out);
             fclose($out);
@@ -527,7 +527,7 @@ final class DistBridge
 
         self::removePath($tmpNew);
         if (!rename($staging, $tmpNew)) {
-            throw new DistBridgeException('Cannot move staging to ' . $tmpNew);
+            throw new HautooDistBridgeException('Cannot move staging to ' . $tmpNew);
         }
 
         $hadTarget = self::pathExists($targetDir);
@@ -535,7 +535,7 @@ final class DistBridge
             self::removePath($discard);
             if (!rename($targetDir, $discard)) {
                 rename($tmpNew, $staging);
-                throw new DistBridgeException('Cannot move current target aside');
+                throw new HautooDistBridgeException('Cannot move current target aside');
             }
         }
 
@@ -543,7 +543,7 @@ final class DistBridge
             if ($hadTarget && self::pathExists($discard)) {
                 rename($discard, $targetDir);
             }
-            throw new DistBridgeException('Cannot promote new tree to ' . $targetDir);
+            throw new HautooDistBridgeException('Cannot promote new tree to ' . $targetDir);
         }
 
         if (self::pathExists($discard)) {
@@ -565,7 +565,7 @@ final class DistBridge
             $out($prompt . $suffix . ': ');
             $line = fgets(STDIN);
             if ($line === false) {
-                throw new DistBridgeException('No input');
+                throw new HautooDistBridgeException('No input');
             }
             $line = trim($line);
             return $line !== '' ? $line : $default;
@@ -579,7 +579,7 @@ final class DistBridge
         if (is_file($path)) {
             $overwrite = $ask("Config existiert bereits ($path). Überschreiben? (y/N)", 'N');
             if (!in_array(strtolower($overwrite), ['y', 'yes', 'j', 'ja'], true)) {
-                throw new DistBridgeException('Aborted');
+                throw new HautooDistBridgeException('Aborted');
             }
         }
 
@@ -588,17 +588,17 @@ final class DistBridge
         );
         $zipUrl = self::resolveZipUrl($zipIn);
         if ($zipUrl === '' || !preg_match('#^https://#i', $zipUrl)) {
-            throw new DistBridgeException('Need https:// ZIP or base URL');
+            throw new HautooDistBridgeException('Need https:// ZIP or base URL');
         }
         $out("  → $zipUrl\n");
 
         $targetDir = $ask('Zielverzeichnis (Webroot, absolut)');
         if ($targetDir === '' || $targetDir[0] !== '/') {
-            throw new DistBridgeException('targetDir must be an absolute path');
+            throw new HautooDistBridgeException('targetDir must be an absolute path');
         }
         $parent = dirname($targetDir);
         if (!is_dir($parent)) {
-            throw new DistBridgeException("Parent directory does not exist: $parent");
+            throw new HautooDistBridgeException("Parent directory does not exist: $parent");
         }
 
         $keepIn = $ask(
@@ -606,7 +606,7 @@ final class DistBridge
             '1'
         );
         if (!ctype_digit($keepIn)) {
-            throw new DistBridgeException('keepBackups must be a number (0, 1, 2, …)');
+            throw new HautooDistBridgeException('keepBackups must be a number (0, 1, 2, …)');
         }
         $keepBackups = (int) $keepIn;
 
@@ -622,10 +622,10 @@ final class DistBridge
 
         $php = self::exportConfigPhp($export);
         if (!is_dir(self::configDir()) && !mkdir(self::configDir(), 0755, true)) {
-            throw new DistBridgeException('Cannot create config/');
+            throw new HautooDistBridgeException('Cannot create config/');
         }
         if (file_put_contents($path, $php) === false) {
-            throw new DistBridgeException('Cannot write ' . $path);
+            throw new HautooDistBridgeException('Cannot write ' . $path);
         }
         @chmod($path, 0600);
 
@@ -694,7 +694,7 @@ final class DistBridge
 
         try {
             $cfg = self::loadConfig($project);
-        } catch (DistBridgeException $e) {
+        } catch (HautooDistBridgeException $e) {
             $lines[] = 'FAIL  load config: ' . $e->getMessage();
             return ['ok' => false, 'lines' => $lines];
         }

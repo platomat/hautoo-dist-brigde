@@ -13,12 +13,12 @@ declare(strict_types=1);
  *   ./hdb.sh help
  */
 
-require dirname(__DIR__) . '/lib/DistBridge.php';
+require dirname(__DIR__) . '/lib/HautooDistBridge.php';
 
 function hdb_usage(): void
 {
-    $v = DistBridge::VERSION;
-    $zip = DistBridge::ZIP_NAME;
+    $v = HautooDistBridge::VERSION;
+    $zip = HautooDistBridge::ZIP_NAME;
     fwrite(STDOUT, <<<TXT
 hautoo dist-bridge (hdb) v{$v}
 
@@ -59,12 +59,12 @@ try {
 
         case 'init':
         case 'config':
-            DistBridge::initInteractive();
+            HautooDistBridge::initInteractive();
             exit(0);
 
         case 'list':
         case 'ls':
-            $projects = DistBridge::listProjects();
+            $projects = HautooDistBridge::listProjects();
             if ($projects === []) {
                 fwrite(STDOUT, "Keine Projekte. Anlegen mit: ./hdb.sh init\n");
                 exit(0);
@@ -79,41 +79,41 @@ try {
         case 'live':
             $project = $argv[1] ?? '';
             if ($project === '') {
-                throw new DistBridgeException('Usage: ./hdb.sh pull <project>');
+                throw new HautooDistBridgeException('Usage: ./hdb.sh pull <project>');
             }
-            DistBridge::pull(DistBridge::loadConfig($project));
+            HautooDistBridge::pull(HautooDistBridge::loadConfig($project));
             exit(0);
 
         case 'check':
             $what = $argv[1] ?? '';
             if ($what === 'requirements' || $what === 'req' || $what === 'reqs') {
-                exit(hdb_print_check(DistBridge::checkRequirements()));
+                exit(hdb_print_check(HautooDistBridge::checkRequirements()));
             }
             if ($what === 'project' || $what === 'proj') {
                 $project = $argv[2] ?? '';
                 if ($project === '') {
-                    throw new DistBridgeException('Usage: ./hdb.sh check project <project>');
+                    throw new HautooDistBridgeException('Usage: ./hdb.sh check project <project>');
                 }
-                exit(hdb_print_check(DistBridge::checkProject($project)));
+                exit(hdb_print_check(HautooDistBridge::checkProject($project)));
             }
-            throw new DistBridgeException(
+            throw new HautooDistBridgeException(
                 "Usage:\n  ./hdb.sh check requirements\n  ./hdb.sh check project <project>"
             );
 
         default:
             if (preg_match('/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/', $cmd)
-                && is_file(DistBridge::configPath($cmd))) {
-                DistBridge::pull(DistBridge::loadConfig($cmd));
+                && is_file(HautooDistBridge::configPath($cmd))) {
+                HautooDistBridge::pull(HautooDistBridge::loadConfig($cmd));
                 exit(0);
             }
             fwrite(STDERR, "Unknown command: {$cmd}\n\n");
             hdb_usage();
             exit(1);
     }
-} catch (DistBridgeException $e) {
-    DistBridge::log('ERROR: ' . $e->getMessage());
+} catch (HautooDistBridgeException $e) {
+    HautooDistBridge::log('ERROR: ' . $e->getMessage());
     exit(1);
 } catch (Throwable $e) {
-    DistBridge::log('ERROR: ' . $e->getMessage());
+    HautooDistBridge::log('ERROR: ' . $e->getMessage());
     exit(1);
 }
