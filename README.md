@@ -26,7 +26,8 @@ Externer Host (eine Installation)
     → ./hdb.sh init                 Config pro Projekt
     → ./hdb.sh check requirements
     → ./hdb.sh check project beispiel.de
-    → ./hdb.sh pull beispiel.de      ZIP holen → Webroot live
+    → ./hdb.sh pull beispiel.de      ZIP nur bei neuer Build-ID → Webroot live
+    → ./hdb.sh pull beispiel.de --force   immer ziehen (auch bei gleicher ID)
 ```
 
 Passt zur hautuu-Doku [Externes Hosting](https://github.com/platomat/hautoo/blob/main/docs/hosting/README.md).
@@ -55,6 +56,7 @@ Passt zur hautuu-Doku [Externes Hosting](https://github.com/platomat/hautoo/blob
 ./hdb.sh check requirements
 ./hdb.sh check project beispiel.de
 ./hdb.sh pull beispiel.de
+./hdb.sh pull beispiel.de --force
 # gleichwertig:
 php bin/hautoo-dist-bridge.php beispiel.de
 ```
@@ -92,9 +94,12 @@ Beispiel: `backup/beispiel.de/2026-10-16--23-40-01--dist-bridge-a1b2c3d4.zip`
 
 ```bash
 ./hdb.sh pull beispiel.de
+./hdb.sh pull beispiel.de --force   # oder -f
 ```
 
-Lädt die ZIP (HTTPS), entpackt nach Staging (Zip-Slip-Schutz), schreibt Backup mit Build-ID, tauscht den Webroot.
+Vergleicht zuerst die Build-ID der ZIP-Quellen-Site (`<meta name="build-id">`) mit `targetDir/index.html`. **Gleich** → kein Download, Log `skip: build-id already current …` (Exit 0). **Unterschiedlich** oder eine Seite ohne Meta → ZIP laden, entpacken (Zip-Slip-Schutz), Backup mit Build-ID, Webroot tauschen.
+
+`--force` / `-f`: Vergleich überspringen und immer deployen (z. B. wenn im Webroot etwas gelöscht wurde, die Build-ID aber noch stimmt).
 
 ## Build-Seite (Cloudflare)
 

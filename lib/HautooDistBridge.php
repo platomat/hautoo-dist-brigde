@@ -10,7 +10,7 @@ final class HautooDistBridgeException extends RuntimeException
  */
 final class HautooDistBridge
 {
-    public const VERSION = '1.3.0';
+    public const VERSION = '1.4.0';
     public const ZIP_NAME = 'dist-bridge.zip';
 
     public static function repoRoot(): string
@@ -215,11 +215,44 @@ final class HautooDistBridge
     }
 
     /** @param array{zipUrl:string,targetDir:string,token:string,keepBackups:int,workDir:?string,project:?string} $cfg */
-    public static function pull(array $cfg): void
+    /**
+     * Download ZIP and swap into webroot.
+     * Skips when remote and local &lt;meta name="build-id"&gt; already match
+     * (unless $force). Returns true when a deploy ran, false when skipped.
+     */
+    public static function pull(array $cfg, bool $force = false): bool
     {
         $label = $cfg['project'] ?? 'default';
         self::log('version ' . self::VERSION . ' project=' . $label);
         self::log('zip ' . $cfg['zipUrl']);
+
+        if (!$force) {
+            $siteBase = self::siteBaseUrlFromZipUrl($cfg['zipUrl']);
+            $remote = self::fetchRemoteBuildId($siteBase, $cfg['token']);
+            $localId = self::readBuildIdFromFile($cfg['targetDir'] . '/index.html');
+
+            if ($remote['id'] !== null && $localId !== null && $remote['id'] === $localId) {
+                self::log(
+                    'skip: build-id already current (' . $localId . ');'
+                    . ' use --force to pull anyway'
+                );
+                return false;
+            }
+            if ($remote['id'] !== null && $localId !== null) {
+                self::log(
+                    'build-id remote=' . $remote['id']
+                    . ' local=' . $localId . ' → pull'
+                );
+            } elseif ($remote['id'] === null) {
+                self::log(
+                    'info: remote build-id unknown (' . $remote['detail'] . ') → pull'
+                );
+            } else {
+                self::log('info: local build-id missing → pull');
+            }
+        } else {
+            self::log('force: ignoring build-id match check');
+        }
 
         $workBase = $cfg['workDir'] ?? sys_get_temp_dir();
         $workBase = rtrim($workBase, "/\\");
@@ -264,6 +297,7 @@ final class HautooDistBridge
             $staging = '';
 
             self::log('ok');
+            return true;
         } finally {
             if (is_dir($runDir)) {
                 self::log('cleanup ' . $runDir);
