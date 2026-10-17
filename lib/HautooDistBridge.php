@@ -10,7 +10,7 @@ final class HautooDistBridgeException extends RuntimeException
  */
 final class HautooDistBridge
 {
-    public const VERSION = '1.2.0';
+    public const VERSION = '1.3.0';
     public const ZIP_NAME = 'dist-bridge.zip';
 
     public static function repoRoot(): string
@@ -244,16 +244,19 @@ final class HautooDistBridge
             }
             self::log('downloaded ' . $size . ' bytes');
 
-            if ($cfg['keepBackups'] > 0 && $cfg['project'] !== null) {
-                self::saveZipBackup($cfg['project'], $zipFile, $cfg['keepBackups']);
-            }
-
             self::log('extract → staging');
             self::extract($zipFile, $staging);
             self::unwrapSingleRootIfNeeded($staging, $runDir);
 
             if (!is_file($staging . '/index.html')) {
                 self::log('warning: no index.html at ZIP root (continuing anyway)');
+            }
+
+            $buildId = self::readBuildIdFromFile($staging . '/index.html') ?? 'unknown';
+            self::log('build-id ' . $buildId);
+
+            if ($cfg['keepBackups'] > 0 && $cfg['project'] !== null) {
+                self::saveZipBackup($cfg['project'], $zipFile, $cfg['keepBackups'], $buildId);
             }
 
             self::log('swap into ' . $cfg['targetDir']);
@@ -270,11 +273,156 @@ final class HautooDistBridge
     }
 
     /**
-     * Copy downloaded ZIP to backup/<project>/yyyy-mm-dd--hh-mm-ss--dist-bridge.zip
+     * Site origin for the ZIP (strip trailing /dist-bridge.zip).
+     * Used to fetch &lt;meta name="build-id"&gt; from the Cloudflare/Pages deploy.
+     */
+    public static function siteBaseUrlFromZipUrl(string $zipUrl): string
+    {
+        $url = preg_replace(
+            '#/' . preg_quote(self::ZIP_NAME, '#') . '(\?.*)?$#i',
+            '',
+            trim($zipUrl)
+        ) ?? trim($zipUrl);
+        return rtrim($url, '/');
+    }
+
+    /** Parse hautuu BaseLayout meta build-id from HTML. */
+    public static function extractBuildIdFromHtml(string $html): ?string
+    {
+        if (preg_match(
+            '/<meta\s+[^>]*\bname=["\']build-id["\'][^>]*\bcontent=["\']([^"\']+)["\']/i',
+            $html,
+            $m
+        )) {
+            $id = trim($m[1]);
+            return $id !== '' ? $id : null;
+        }
+        if (preg_match(
+            '/<meta\s+[^>]*\bcontent=["\']([^"\']+)["\'][^>]*\bname=["\']build-id["\']/i',
+            $html,
+            $m
+        )) {
+            $id = trim($m[1]);
+            return $id !== '' ? $id : null;
+        }
+        return null;
+    }
+
+    public static function readBuildIdFromFile(string $path): ?string
+    {
+        if (!is_file($path)) {
+            return null;
+        }
+        $html = @file_get_contents($path);
+        if ($html === false || $html === '') {
+            return null;
+        }
+        return self::extractBuildIdFromHtml($html);
+    }
+
+    /**
+     * Safe slug for backup filenames (commit SHA / BUILD_ID).
+     */
+    public static function sanitizeBuildIdForFilename(string $buildId): string
+    {
+        $id = preg_replace('/[^a-zA-Z0-9._-]+/', '-', trim($buildId)) ?? '';
+        $id = trim($id, '.-_');
+        if ($id === '') {
+            return 'unknown';
+        }
+        if (strlen($id) > 40) {
+            $id = substr($id, 0, 40);
+        }
+        return $id;
+    }
+
+    /**
+     * GET HTML from site base and return build-id meta (or null).
+     *
+     * @return array{id:?string,detail:string}
+     */
+    public static function fetchRemoteBuildId(string $siteBaseUrl, string $token = ''): array
+    {
+        $base = rtrim($siteBaseUrl, '/');
+        if ($base === '' || !preg_match('#^https://#i', $base)) {
+            return ['id' => null, 'detail' => 'no https site base'];
+        }
+        $url = $base . '/';
+        $html = self::fetchTextUrl($url, $token);
+        if ($html === null) {
+            $html = self::fetchTextUrl($base . '/index.html', $token);
+        }
+        if ($html === null) {
+            return ['id' => null, 'detail' => 'HTML not fetched from ' . $url];
+        }
+        $id = self::extractBuildIdFromHtml($html);
+        if ($id === null) {
+            return ['id' => null, 'detail' => 'no meta build-id in HTML'];
+        }
+        return ['id' => $id, 'detail' => 'meta build-id'];
+    }
+
+    /** @return string|null response body or null on failure */
+    private static function fetchTextUrl(string $url, string $token): ?string
+    {
+        if (function_exists('curl_init')) {
+            $ch = curl_init($url);
+            if ($ch === false) {
+                return null;
+            }
+            $headers = ['Accept: text/html,application/xhtml+xml,*/*'];
+            if ($token !== '') {
+                $headers[] = 'Authorization: Bearer ' . $token;
+            }
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_MAXREDIRS => 5,
+                CURLOPT_TIMEOUT => 30,
+                CURLOPT_CONNECTTIMEOUT => 15,
+                CURLOPT_HTTPHEADER => $headers,
+                CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
+                CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS,
+                CURLOPT_USERAGENT => 'hautoo-dist-bridge/' . self::VERSION,
+            ]);
+            $body = curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if ($body === false || $code < 200 || $code >= 400) {
+                return null;
+            }
+            return (string) $body;
+        }
+
+        $ctx = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'timeout' => 30,
+                'header' => "User-Agent: hautoo-dist-bridge/" . self::VERSION . "\r\n"
+                    . "Accept: text/html,*/*\r\n"
+                    . ($token !== '' ? "Authorization: Bearer {$token}\r\n" : ''),
+                'follow_location' => 1,
+            ],
+            'ssl' => [
+                'verify_peer' => true,
+                'verify_peer_name' => true,
+            ],
+        ]);
+        $body = @file_get_contents($url, false, $ctx);
+        return $body === false ? null : $body;
+    }
+
+    /**
+     * Copy downloaded ZIP to
+     * backup/<project>/yyyy-mm-dd--hh-mm-ss--dist-bridge-<build-id>.zip
      * and prune to keepBackups newest files.
      */
-    public static function saveZipBackup(string $project, string $zipFile, int $keepBackups): void
-    {
+    public static function saveZipBackup(
+        string $project,
+        string $zipFile,
+        int $keepBackups,
+        string $buildId = 'unknown',
+    ): void {
         if ($keepBackups < 1) {
             return;
         }
@@ -283,11 +431,14 @@ final class HautooDistBridge
             throw new HautooDistBridgeException('Cannot create backup dir ' . $dir);
         }
         $stamp = date('Y-m-d--H-i-s');
-        $dest = $dir . '/' . $stamp . '--' . self::ZIP_NAME;
+        $safeId = self::sanitizeBuildIdForFilename($buildId);
+        $baseName = $stamp . '--dist-bridge-' . $safeId . '.zip';
+        $dest = $dir . '/' . $baseName;
         $n = 0;
         while (is_file($dest)) {
             $n++;
-            $dest = $dir . '/' . $stamp . '--' . sprintf('%02d', $n) . '--' . self::ZIP_NAME;
+            $dest = $dir . '/' . $stamp . '--' . sprintf('%02d', $n)
+                . '--dist-bridge-' . $safeId . '.zip';
         }
         if (!copy($zipFile, $dest)) {
             throw new HautooDistBridgeException('Cannot write backup ZIP ' . $dest);
@@ -317,7 +468,12 @@ final class HautooDistBridge
         }
         $files = [];
         foreach (scandir($dir) ?: [] as $f) {
-            if (preg_match('/^\d{4}-\d{2}-\d{2}--\d{2}-\d{2}-\d{2}(--\d+)?--.+\.zip$/', $f)) {
+            // New: …--dist-bridge-<id>.zip  /  …--NN--dist-bridge-<id>.zip
+            // Legacy: …--dist-bridge.zip
+            if (preg_match(
+                '/^\d{4}-\d{2}-\d{2}--\d{2}-\d{2}-\d{2}(--\d+)?--dist-bridge(-[a-zA-Z0-9._-]+)?\.zip$/',
+                $f
+            )) {
                 $files[] = $dir . '/' . $f;
             }
         }
@@ -738,6 +894,33 @@ final class HautooDistBridge
             . ' (keepBackups=' . $cfg['keepBackups'] . ')';
         foreach (array_slice($zips, 0, 5) as $z) {
             $lines[] = '      - ' . basename($z);
+        }
+
+        $siteBase = self::siteBaseUrlFromZipUrl($cfg['zipUrl']);
+        $remote = self::fetchRemoteBuildId($siteBase, $cfg['token']);
+        $localId = self::readBuildIdFromFile($cfg['targetDir'] . '/index.html');
+
+        if ($remote['id'] !== null) {
+            $lines[] = 'ok  remote build-id: ' . $remote['id'] . ' (' . $siteBase . ')';
+        } else {
+            $lines[] = 'info  remote build-id: — (' . $remote['detail'] . ')';
+        }
+        if ($localId !== null) {
+            $lines[] = 'ok  local  build-id: ' . $localId . ' (' . $cfg['targetDir'] . ')';
+        } elseif (is_file($cfg['targetDir'] . '/index.html')) {
+            $lines[] = 'info  local  build-id: — (no meta in index.html)';
+        } else {
+            $lines[] = 'info  local  build-id: — (kein index.html im targetDir)';
+        }
+
+        if ($remote['id'] !== null && $localId !== null) {
+            if ($remote['id'] === $localId) {
+                $lines[] = 'ok  build-id match (CF/ZIP-Quelle = Webroot)';
+            } else {
+                $lines[] = 'WARN  build-id mismatch — Pull empfohlen'
+                    . ' (remote=' . $remote['id'] . ', local=' . $localId . ')';
+                $ok = false;
+            }
         }
 
         return ['ok' => $ok, 'lines' => $lines];

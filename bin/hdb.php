@@ -27,11 +27,11 @@ Usage:
   ./hdb.sh list                      Projekte auflisten
   ./hdb.sh pull <project>            ZIP holen und Webroot tauschen
   ./hdb.sh check requirements        PHP / Extensions / Schreibrechte
-  ./hdb.sh check project <project>   Config, ZIP-URL, Zielpfad, Backups
+  ./hdb.sh check project <project>   Config, ZIP, Ziel, Backups, Build-ID
   ./hdb.sh help
 
 Config:   config/<project>.local.php
-Backups:  backup/<project>/yyyy-mm-dd--hh-mm-ss--{$zip}
+Backups:  backup/<project>/yyyy-mm-dd--hh-mm-ss--dist-bridge-<build-id>.zip
 Beispiel: ./hdb.sh pull beispiel.de
 
 TXT);

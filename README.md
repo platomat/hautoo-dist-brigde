@@ -45,7 +45,7 @@ Passt zur hautuu-Doku [Externes Hosting](https://github.com/platomat/hautoo/blob
 | Pfad | Bedeutung |
 | --- | --- |
 | `config/beispiel.de.local.php` | Config für Projekt-Id `beispiel.de` |
-| `backup/beispiel.de/` | ZIP-Archive der letzten Pulls |
+| `backup/beispiel.de/` | ZIP-Archive der letzten Pulls (`…--dist-bridge-<build-id>.zip`) |
 | `./hdb.sh` / `bin/hdb.php` | Kurzbefehl |
 | `bin/hautoo-dist-bridge.php` | gleicher CLI, langer Name |
 
@@ -69,13 +69,13 @@ php bin/hautoo-dist-bridge.php beispiel.de
 
 ### Backups
 
-Nach jedem erfolgreichen Download (vor dem Webroot-Tausch) landet eine Kopie hier:
+Nach Download und Entpacken (vor dem Webroot-Tausch) landet eine Kopie hier. Der Dateiname enthält die hautuu-**Build-ID** aus `<meta name="build-id">` (meist Short-Commit von Cloudflare Pages):
 
 ```text
-backup/<projekt>/yyyy-mm-dd--hh-mm-ss--dist-bridge.zip
+backup/<projekt>/yyyy-mm-dd--hh-mm-ss--dist-bridge-<build-id>.zip
 ```
 
-Beispiel: `backup/beispiel.de/2026-10-16--23-40-01--dist-bridge.zip`
+Beispiel: `backup/beispiel.de/2026-10-16--23-40-01--dist-bridge-a1b2c3d4.zip`
 
 `keepBackups` begrenzt die Anzahl (älteste werden gelöscht). `0` = keine ZIP-Backups. Der alte Webroot wird beim Tausch verworfen; die Historie steckt in diesen ZIPs.
 
@@ -83,8 +83,10 @@ Beispiel: `backup/beispiel.de/2026-10-16--23-40-01--dist-bridge.zip`
 
 ```bash
 ./hdb.sh check requirements   # PHP >= 8.1, zip, curl/fopen, Schreibrechte
-./hdb.sh check project beispiel.de   # Config, ZIP erreichbar, Zielpfad, lokale Backups
+./hdb.sh check project beispiel.de   # Config, ZIP, Zielpfad, Backups, Build-ID remote vs. lokal
 ```
+
+`check project` liest die Build-ID von der ZIP-Quellen-Site (Basis-URL ohne `/dist-bridge.zip`) und aus `targetDir/index.html`. Bei Abweichung: `WARN` und Exit-Code 1 (Pull empfohlen).
 
 ### Pull
 
@@ -92,7 +94,7 @@ Beispiel: `backup/beispiel.de/2026-10-16--23-40-01--dist-bridge.zip`
 ./hdb.sh pull beispiel.de
 ```
 
-Lädt die ZIP (HTTPS), sichert sie unter `backup/`, entpackt nach Staging (Zip-Slip-Schutz), tauscht den Webroot.
+Lädt die ZIP (HTTPS), entpackt nach Staging (Zip-Slip-Schutz), schreibt Backup mit Build-ID, tauscht den Webroot.
 
 ## Build-Seite (Cloudflare)
 
